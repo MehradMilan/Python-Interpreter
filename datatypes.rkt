@@ -42,5 +42,10 @@
   (expressions (expr expression?) (rest-exprs expression*?))
   )
 
+(define-datatype environment environment?
+  (empty-environment)
+  (extended-environment (var string?) (val expression?) (env environment?))
+  )
+
 (provide (all-defined-out))
 (#%provide (all-defined))
