@@ -11,7 +11,7 @@
   (parse-scan (string-join (file->lines file-name)))
   )
 
-(parse-scan (string-join (file->lines "tests/test.py")))
+(evaluate "tests/test.py")
 
 (provide (all-defined-out))
 
