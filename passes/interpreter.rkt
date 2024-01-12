@@ -169,11 +169,13 @@
 (define run-ref-promise
     (lambda (var scope-index -scopes) 
         (let ([r (apply-scope-on-given-scopes scope-index -scopes var)])
-            (cases promise  r
-                (a-promise (expr scope-index --scopes)
-                    (eval-expr-promise expr scope-index --scopes)
+            (if (promise? r)
+                (cases promise  r
+                    (a-promise (expr scope-index --scopes)
+                        (eval-expr-promise expr scope-index --scopes)
+                    )
                 )
-                (else r)
+                r
             )
         )
     )
@@ -183,14 +185,31 @@
     (cases expression expr
         (binary_op (op left right) (eval-binary-op-promise op left right scope-index -scopes))
         (unary_op (op operand) (op (eval-expr-promise operand scope-index -scopes)))
-        ;;; (function_call (func expression?) (params expression*?))
-        ;;; (list_ref (ref expression?) (index expression?))
+        (function_call (func params) (run-function-call-promise func params scope-index -scopes))
+        (list_ref (ref index) (eval-list-ref-promise ref index scope-index -scopes))
         (ref (var) (run-ref-promise var scope-index -scopes))
         (atomic_bool_exp (bool) bool)
         (atomic_num_exp (num) num)
         (atomic_null_exp () (sig-void))
         (atomic_list_exp (l) (eval-atomic_list_exp l scope-index))
         (else (display "else3\n"))
+    )
+)
+
+
+(define eval-list-ref-promise 
+    (lambda (ref index scope-index -scopes)
+        (let ([entry (list-ref (eval-expr-promise ref scope-index -scopes) (eval-expr-promise index scope-index -scopes))])
+            (if (promise? entry)
+                (cases promise  entry
+                (a-promise (expr scope-index --scopes)
+                    (eval-expr-promise expr scope-index --scopes)
+                )
+                (else entry)
+            )
+                (eval-expr-promise entry scope-index -scopes)
+            )
+        )
     )
 )
 
@@ -229,6 +248,30 @@
 
 )
 
+(define (run-function-call-promise func over-params scope-index -scopes) 
+
+    (let
+        (
+            [func-val (eval-expr-promise func scope-index -scopes)]  
+        )
+            (if (proc? func-val) 
+                (cases proc func-val
+                    (new-proc (params stmts parent-scope)
+                        (let (
+                            [new-scope-index (add-scope (get-scope parent-scope))]
+                            [params-val (eval-over-params params (eval-exp* over-params scope-index) scope-index scopes)]  
+                            )
+                            (run-a-function params params-val stmts new-scope-index)
+                        )
+                    )
+                    
+                )
+                func-val
+            
+            )
+    )
+)
+
 (define (run-function-call func over-params scope-index) 
 
     (let
@@ -250,14 +293,6 @@
                 func-val
             
             )
-        ;;; (begin
-        ;;; (display "\n\n--------------------------\n\n")
-        ;;; (display func-val)
-        ;;; (display "\n\n--------------------------\n\n")
-        ;;; (display params-val)
-        ;;; (display "\n\n--------------------------\n\n")
-        ;;; (sig-void)
-        ;;; )
     )
 )
 

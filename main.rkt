@@ -19,10 +19,13 @@
 
 ;;; (evaluate "tests/test2.py")
 
-;;; (evaluate "tests/test3.py")
+(evaluate "tests/test3.py")
 
 ;;; (evaluate "tests/test4.py")
 
-(evaluate "tests/test5.py")
+;;; (evaluate "tests/test5.py")
+
+;;; (evaluate "tests/test6.py")
+
 
 (provide (all-defined-out))

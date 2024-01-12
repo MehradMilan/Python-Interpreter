@@ -6,8 +6,10 @@ def scope(status = 1):
 
 def main():
     print(status);
-    x = scope(status);
-    return x - 1;;
+    y = [1,2,3,4,5];
+    x = scope();
+    y2 = y[0];
+    return x - y2;;
 
 
 print(main());
