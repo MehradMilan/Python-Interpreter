@@ -7,6 +7,7 @@
 
 (require (lib "eopl.ss" "eopl"))
 (require "../memory/scoping.rkt")
+(require "../datatypes.rkt")
 
 
 ;;; (define value-of-program
@@ -57,9 +58,53 @@
 
 
 
+(define run-assign 
+    (lambda (var expr scope-index) 
+    (begin
+        (let ([index (if
+                        (is-global? var scope-index)
+                             0
+                             scope-index)])
+                (extend-scope index var expr)
+        
+        )
+        (display "\n\n\n env \n\n\n")
+        (display (get-scope scope-index))
+    )
+    )
+)
+
+
+(define run-print 
+    (lambda (exprs)
+        (cases expression* exprs
+            (empty-expr () (void))
+            (expressions (expr rest-exprs) 
+                (begin
+                    (run-print rest-exprs)
+                    (display expr)
+                )
+            )
+        )
+    )
+)
 (define run-single-command 
     (lambda (command scope-index)
-        (display command)
+        (cases statement command
+        (assign (var expr) (run-assign var expr scope-index))
+        (global (var) (display "global command\n"))
+        (return (expr) (display "return command\n"))
+        (return_void () (display "return void command\n"))
+        (pass () (display "pass command\n"))
+        (break () (display "break command\n"))
+        (continue () (display "continue command\n"))
+        (func (name params statements) (display "func command\n"))
+        (if_stmt (cond_exp if_sts else_sts) (display "if command\n"))
+        (for_stmt (iter list_exp sts) (display "for command\n"))
+        (print_stmt (expressions) (run-print expressions))
+        (else (display "error\n"))
+        
+        )
     )
 )
 

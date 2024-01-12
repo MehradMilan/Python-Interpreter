@@ -1,17 +1,17 @@
 #lang racket
 
 (require (lib "eopl.ss" "eopl"))
-(require "datatypes.rkt")
+(require "../datatypes.rkt")
 
 (define empty-env (lambda () (empty-environment)))
 
-(define update-env (lambda (var val env)
+(define extend-env (lambda (var val env)
     (cases environment env
         (empty-environment () (extended-environment var val env))
         (extended-environment (pvar pval penv)
             (if (equal? var pvar)
                 (extended-environment var val penv)
-                (extended-environment pvar pval (update-env var val penv))
+                (extended-environment pvar pval (extend-env var val penv))
             ))
     )))
 
@@ -25,4 +25,7 @@
                 (apply-env var penv)
             ))
     )))
-    
+
+
+(provide (all-defined-out))
+(#%provide (all-defined))

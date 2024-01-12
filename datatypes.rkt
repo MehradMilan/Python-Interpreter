@@ -35,16 +35,20 @@
   (atomic_num_exp (num number?))
   (atomic_null_exp)
   (atomic_list_exp (l expression*?))
-  )
+)
 
 (define-datatype expression* expression*?
   (empty-expr)
   (expressions (expr expression?) (rest-exprs expression*?))
   )
 
+  (define-datatype promise promise?
+    (a-promise (val expression?) (env environment?)) 
+  )
+
   (define-datatype environment environment?
   (empty-environment)
-  (extended-environment (var string?) (val expression?) (env environment?))
+  (extended-environment (var string?) (promise promise?) (env environment?))
   )
 
 
