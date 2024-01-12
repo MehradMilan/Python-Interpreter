@@ -123,7 +123,7 @@
     (lambda (l scope-index)
         (cases expression* l
             (empty-expr () '())
-            (expressions (expr rest-exprs) (append (eval-atomic_list_exp rest-exprs scope-index) (list expr)))
+            (expressions (expr rest-exprs) (append (eval-atomic_list_exp rest-exprs scope-index) (list (a-promise expr scope-index scopes))))
         )
     )
 )
@@ -165,8 +165,32 @@
         (atomic_bool_exp (bool) bool)
         (atomic_num_exp (num) num)
         (atomic_null_exp () (sig-void))
-        ;;; (atomic_list_exp (l expression*?))
-        (else (display "else\n"))
+        (atomic_list_exp (l) (eval-atomic_list_exp l scope-index))
+        (else (display "else3\n"))
+    )
+)
+
+;;; (define eval-list-ref-promise
+;;;     (lambda (ref index scope-index -scopese)
+;;;         (eval-expr (list-ref (eval-expr ref scope-index) (eval-expr index scope-index)) scope-index)
+;;;     )
+
+;;; )
+
+(define eval-list-ref 
+    (lambda (ref index scope-index)
+        
+        (let ([entry (list-ref (eval-expr ref scope-index) (eval-expr index scope-index))])
+            (if (promise? entry)
+                (cases promise  entry
+                (a-promise (expr scope-index --scopes)
+                    (eval-expr-promise expr scope-index --scopes)
+                )
+                (else entry)
+            )
+                (eval-expr entry scope-index)
+            )
+        )
     )
 )
 
@@ -175,13 +199,13 @@
         (binary_op (op left right) (eval-binary-op op left right scope-index))
         (unary_op (op operand) (op (eval-expr operand scope-index)))
         ;;; (function_call (func expression?) (params expression*?))
-        ;;; (list_ref (ref expression?) (index expression?))
+        (list_ref (ref index) (eval-list-ref ref index scope-index))
         (ref (var) (run-ref var scope-index))
         (atomic_bool_exp (bool) bool)
         (atomic_num_exp (num) num)
         (atomic_null_exp () (sig-void))
         (atomic_list_exp (l) (eval-atomic_list_exp l scope-index))
-        (else (display "else\n"))
+        (else (display "else2\n"))
     )
 )
 

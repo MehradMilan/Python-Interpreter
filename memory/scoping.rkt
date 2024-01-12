@@ -81,7 +81,10 @@
 (define (extend-scope scope-index var value)
     (let ([current-scope (get-scope scope-index)])
         (let ([current-env (scope->env current-scope)])
-            (let  ([new-env (extend-env var (a-promise value scope-index scopes) current-env)])
+            (let  ([new-env (extend-env var (if (promise? value)
+                                                value
+                                                 (a-promise value scope-index scopes)
+                                                ) current-env)])
                 (set-scope scope-index 
                     (the-scope new-env 
                         (scope->upper current-scope)
