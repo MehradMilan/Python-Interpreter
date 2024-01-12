@@ -13,26 +13,32 @@
 
 (define run 
     (lambda (abstract-syntax-tree)
-    (begin
-        (renew-scope)
-        (interp-ast abstract-syntax-tree (add-scope (init-scope)))
-    )
+        (begin
+            (renew-scope)
+            (interp-ast abstract-syntax-tree (add-scope (init-scope)))
+            (void)
+        )
     )
 )
 
 (define interp-ast 
     (lambda (as-subtree scope-index)
         (if (null? as-subtree) 
-            (void)
+            (sig-void)
             (let (
                 [root (car as-subtree)]
                 [new-subtree (cdr as-subtree)]
                 )
-                (let ([root-result (run-single-command root scope-index)]) 
-                    (if (or (eq? root-result `break) (eq? root-result `continue))
-                        (void)
-                        (interp-ast new-subtree scope-index)
+                (let ([root-result (run-single-command root scope-index)])
+                    (cases interp-signal root-result
+                        (sig-break () (sig-break))
+                        (sig-continue () (sig-continue))
+                        (else (interp-ast new-subtree scope-index))
                     )
+                    ;;; (if (or (eq? root-result `break) (eq? root-result `continue))
+                    ;;;     (sig-void)
+                    ;;;     (interp-ast new-subtree scope-index)
+                    ;;; )
                 )
             )
         )
@@ -112,33 +118,42 @@
     )
 )
 
+
+(define eval-atomic_list_exp
+    (lambda (l scope-index)
+        (cases expression* l
+            (empty-expr () '())
+            (expressions (expr rest-exprs) (append (eval-atomic_list_exp rest-exprs scope-index) (list expr)))
+        )
+    )
+)
+
 (define run-ref
     (lambda (var scope-index) 
-        ( let ([r (apply-scope scope-index var)])
-        (cases promise r
-            (a-promise (expr scope-index -scopes)
-                (eval-expr-promise expr scope-index -scopes)
+        (let ([r (apply-scope scope-index var)])
+            (cases promise r
+                (a-promise (expr scope-index -scopes)
+                    (eval-expr-promise expr scope-index -scopes)
+                )
+                (else r)
+            
             )
-            (else r)
-        
-        )
         )
     )
 )
 
 (define run-ref-promise
     (lambda (var scope-index -scopes) 
-    ( let ([r (apply-scope-on-given-scopes scope-index -scopes var)])
-        (cases promise  r
-            (a-promise (expr scope-index --scopes)
-                (eval-expr-promise expr scope-index --scopes)
+        (let ([r (apply-scope-on-given-scopes scope-index -scopes var)])
+            (cases promise  r
+                (a-promise (expr scope-index --scopes)
+                    (eval-expr-promise expr scope-index --scopes)
+                )
+                (else r)
             )
-            (else r)
         )
     )
-    )
 )
-
 
 (define (eval-expr-promise expr scope-index -scopes)
     (cases expression expr
@@ -149,12 +164,11 @@
         (ref (var) (run-ref-promise var scope-index -scopes))
         (atomic_bool_exp (bool) bool)
         (atomic_num_exp (num) num)
-        (atomic_null_exp () (void))
+        (atomic_null_exp () (sig-void))
         ;;; (atomic_list_exp (l expression*?))
         (else (display "else\n"))
     )
 )
-
 
 (define (eval-expr expr scope-index)
     (cases expression expr
@@ -165,38 +179,36 @@
         (ref (var) (run-ref var scope-index))
         (atomic_bool_exp (bool) bool)
         (atomic_num_exp (num) num)
-        (atomic_null_exp () (void))
-        ;;; (atomic_list_exp (l expression*?))
+        (atomic_null_exp () (sig-void))
+        (atomic_list_exp (l) (eval-atomic_list_exp l scope-index))
         (else (display "else\n"))
     )
 )
 
 (define run-assign 
     (lambda (var expr scope-index) 
-    (begin
-        (let ([index (if
-                        (is-global? var scope-index)
-                             0
-                             scope-index)])
-                (extend-scope index var expr)
-        
+        (begin
+            (let ([index (if
+                            (is-global? var scope-index)
+                                0
+                                scope-index)])
+                    (extend-scope index var expr)
+            )
+            (sig-void)
         )
-        ;;; (display "\n\n\n env \n\n\n")
-        ;;; (display (get-scope scope-index))
-    )
     )
 )
-
 
 (define run-print 
     (lambda (exprs scope-index)
         (cases expression* exprs
-            (empty-expr () (void))
+            (empty-expr () (sig-void))
             (expressions (expr rest-exprs) 
                 (begin
                     (run-print rest-exprs scope-index)
                     (display (eval-expr expr scope-index))
                     (display "\n")
+                    (sig-void)
                 )
             )
         )
@@ -205,17 +217,45 @@
 
 (define run-if
     (lambda (cond_exp if_sts else_sts scope-index)
-        (let ([cond-val (eval-expr cond_exp scope-index)])
         
-            (if (not (and (eq? cond-val #f) (eq? cond-val 0)))
-                (interp-ast if_sts scope-index)
-                (interp-ast else_sts scope-index)
-            )
+        (let ([cond-val (eval-expr cond_exp scope-index)])
+    
+        (if (and (not (eq? cond-val #f)) (not (eq? cond-val 0)))
+            (interp-ast if_sts scope-index)
+            (interp-ast else_sts scope-index)
         )
+
+        )
+        
     
     )
 )
 
+(define exec-iter
+    (lambda (iter lst sts scope-index)
+        (if (null? lst)
+            (sig-void)
+            (begin
+                (extend-scope scope-index iter (car lst))
+                (let ([result (interp-ast sts scope-index)]) 
+                    (cases interp-signal result
+                        (sig-break () (sig-void))
+                        (else (exec-iter iter (cdr lst) sts scope-index))
+                    )
+                )
+                (sig-void)
+            )
+        )   
+    )
+)
+
+(define run-for
+    (lambda (iter list_exp sts scope-index)
+        (let ([lst (eval-expr list_exp scope-index)])
+            (exec-iter iter lst sts scope-index)
+        )
+    )
+)
 
 (define run-single-command 
     (lambda (command scope-index)
@@ -224,12 +264,12 @@
         (global (var) (display "global command\n"))
         (return (expr) (display "return command\n"))
         (return_void () (display "return void command\n"))
-        (pass () (void))
-        (break () (display "break command\n"))
-        (continue () (display "continue command\n"))
+        (pass () (sig-void))
+        (break () (sig-break))
+        (continue () (sig-continue))
         (func (name params statements) (display "func command\n"))
         (if_stmt (cond_exp if_sts else_sts) (run-if cond_exp if_sts else_sts scope-index))
-        (for_stmt (iter list_exp sts) (display "for command\n"))
+        (for_stmt (iter list_exp sts) (run-for iter list_exp sts scope-index))
         (print_stmt (expressions) (run-print expressions scope-index))
         (else (display "error\n"))
         )

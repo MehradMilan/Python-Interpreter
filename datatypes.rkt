@@ -44,17 +44,22 @@
 (define-datatype expression* expression*?
   (empty-expr)
   (expressions (expr expression?) (rest-exprs expression*?))
-  )
+)
 
-  (define-datatype promise promise?
-    (a-promise (val expression?) (scope-index number?) (-scopes list?)) 
-  )
+(define-datatype promise promise?
+  (a-promise (val expression?) (scope-index number?) (-scopes list?)) 
+)
 
-  (define-datatype environment environment?
+(define-datatype environment environment?
   (empty-environment)
   (extended-environment (var string?) (promise promise?) (env environment?))
-  )
+)
 
+(define-datatype interp-signal interp-signal?
+  (sig-break)
+  (sig-continue)
+  (sig-void)
+)
 
 (provide (all-defined-out))
 (#%provide (all-defined))
