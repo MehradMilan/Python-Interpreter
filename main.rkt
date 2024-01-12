@@ -15,6 +15,14 @@
 
 ;;; (parse-scan "tests/test.py")
 
-(evaluate "tests/test.py")
+;;; (evaluate "tests/test.py")
+
+;;; (evaluate "tests/test2.py")
+
+;;; (evaluate "tests/test3.py")
+
+;;; (evaluate "tests/test4.py")
+
+(evaluate "tests/test5.py")
 
 (provide (all-defined-out))

@@ -33,12 +33,9 @@
                     (cases interp-signal root-result
                         (sig-break () (sig-break))
                         (sig-continue () (sig-continue))
-                        (else (interp-ast new-subtree scope-index))
+                        (sig-void () (interp-ast new-subtree scope-index))
+                        (sig-val (value) value)
                     )
-                    ;;; (if (or (eq? root-result `break) (eq? root-result `continue))
-                    ;;;     (sig-void)
-                    ;;;     (interp-ast new-subtree scope-index)
-                    ;;; )
                 )
             )
         )
@@ -118,25 +115,52 @@
     )
 )
 
-
-(define eval-atomic_list_exp
+(define eval-exp*
     (lambda (l scope-index)
         (cases expression* l
             (empty-expr () '())
             (expressions (expr rest-exprs) (append (eval-atomic_list_exp rest-exprs scope-index) (list (a-promise expr scope-index scopes))))
         )
     )
+
+)
+(define eval-atomic_list_exp
+    (lambda (l scope-index)
+    (eval-exp* l scope-index)
+    )
+)
+
+(define (run-a-function params over-params stmts scope-index) 
+    (cases eval-func-param* params
+        (empty-eval-func-param () (cases eval-func-param* over-params
+            (empty-eval-func-param () (interp-ast stmts scope-index))
+            (eval-func-params (par rest) (run-a-function over-params (empty-eval-func-param) stmts scope-index) )
+            ))
+        (eval-func-params (par rest) 
+            (begin
+                (cases eval-func-param par
+                    (eval_with_default (var val si -scopes)
+                        (extend-scope scope-index var (if promise? val (a-promise val si -scopes)))
+                    )
+                )
+                (run-a-function rest over-params stmts scope-index) 
+            )
+        )
+    
+    )
 )
 
 (define run-ref
     (lambda (var scope-index) 
         (let ([r (apply-scope scope-index var)])
-            (cases promise r
-                (a-promise (expr scope-index -scopes)
-                    (eval-expr-promise expr scope-index -scopes)
-                )
-                (else r)
-            
+            (if (promise? r)
+                ( begin
+                    (cases promise r
+                    (a-promise (expr scope-index -scopes)
+                        (eval-expr-promise expr scope-index -scopes)
+                    )
+                    ))
+                r
             )
         )
     )
@@ -170,16 +194,9 @@
     )
 )
 
-;;; (define eval-list-ref-promise
-;;;     (lambda (ref index scope-index -scopese)
-;;;         (eval-expr (list-ref (eval-expr ref scope-index) (eval-expr index scope-index)) scope-index)
-;;;     )
-
-;;; )
 
 (define eval-list-ref 
     (lambda (ref index scope-index)
-        
         (let ([entry (list-ref (eval-expr ref scope-index) (eval-expr index scope-index))])
             (if (promise? entry)
                 (cases promise  entry
@@ -194,11 +211,61 @@
     )
 )
 
+(define 
+    (eval-over-params params over-params scope-index -scopes)
+    (if (null? over-params )
+        (empty-eval-func-param)
+        (let ([overrided-value (car over-params)])
+            (cases eval-func-param* params
+                (empty-eval-func-param () (display "error"))
+                (eval-func-params (p rest) (eval-func-params 
+                                        (cases eval-func-param p
+                                            (eval_with_default (var expr si ss) (eval_with_default var overrided-value si ss))
+                                        )
+                    (eval-over-params rest (cdr over-params) scope-index -scopes)))
+            )
+        )
+    )
+
+)
+
+(define (run-function-call func over-params scope-index) 
+
+    (let
+        (
+            [func-val (eval-expr func scope-index)]  
+        )
+            (if (proc? func-val) 
+                (cases proc func-val
+                    (new-proc (params stmts parent-scope)
+                        (let (
+                            [new-scope-index (add-scope (get-scope parent-scope))]
+                            [params-val (eval-over-params params (eval-exp* over-params scope-index) scope-index scopes)]  
+                            )
+                            (run-a-function params params-val stmts new-scope-index)
+                        )
+                    )
+                    
+                )
+                func-val
+            
+            )
+        ;;; (begin
+        ;;; (display "\n\n--------------------------\n\n")
+        ;;; (display func-val)
+        ;;; (display "\n\n--------------------------\n\n")
+        ;;; (display params-val)
+        ;;; (display "\n\n--------------------------\n\n")
+        ;;; (sig-void)
+        ;;; )
+    )
+)
+
 (define (eval-expr expr scope-index)
     (cases expression expr
         (binary_op (op left right) (eval-binary-op op left right scope-index))
         (unary_op (op operand) (op (eval-expr operand scope-index)))
-        ;;; (function_call (func expression?) (params expression*?))
+        (function_call (func params) (run-function-call func params scope-index))
         (list_ref (ref index) (eval-list-ref ref index scope-index))
         (ref (var) (run-ref var scope-index))
         (atomic_bool_exp (bool) bool)
@@ -241,17 +308,12 @@
 
 (define run-if
     (lambda (cond_exp if_sts else_sts scope-index)
-        
         (let ([cond-val (eval-expr cond_exp scope-index)])
-    
-        (if (and (not (eq? cond-val #f)) (not (eq? cond-val 0)))
-            (interp-ast if_sts scope-index)
-            (interp-ast else_sts scope-index)
+            (if (and (not (eq? cond-val #f)) (not (eq? cond-val 0)))
+                (interp-ast if_sts scope-index)
+                (interp-ast else_sts scope-index)
+            )
         )
-
-        )
-        
-    
     )
 )
 
@@ -264,7 +326,9 @@
                 (let ([result (interp-ast sts scope-index)]) 
                     (cases interp-signal result
                         (sig-break () (sig-void))
+                        (sig-val (value) value)
                         (else (exec-iter iter (cdr lst) sts scope-index))
+
                     )
                 )
                 (sig-void)
@@ -281,17 +345,54 @@
     )
 )
 
+(define (eval-params params scope-index -scopes)
+    (cases func_param* params
+        (empty-param () (empty-eval-func-param))
+        (func_params (p rest) (eval-func-params 
+                                (cases func_param p
+                                    (with_default (var expr) (eval_with_default var expr scope-index -scopes))
+                                )
+         (eval-params rest scope-index -scopes)))
+    )
+)
+
+(define (run-func-declaration name params statements scope-index -scopes) 
+        (begin
+            (extend-scope scope-index name 
+                (new-proc
+                    (eval-params params scope-index -scopes)
+                    statements
+                    scope-index
+                )
+            )
+            (sig-void)
+        )
+)
+
+(define run-return
+    (lambda (expr scope-index) (sig-val (eval-expr expr scope-index)))    
+)
+
+(define run-global
+    (lambda (var scope-index)
+        (begin
+            (extend-scope-globals scope-index var)
+            (sig-void)
+        )
+    )
+)
+
 (define run-single-command 
     (lambda (command scope-index)
         (cases statement command
         (assign (var expr) (run-assign var expr scope-index))
-        (global (var) (display "global command\n"))
-        (return (expr) (display "return command\n"))
-        (return_void () (display "return void command\n"))
+        (global (var) (run-global var scope-index))
+        (return (expr) (run-return expr scope-index))
+        (return_void () (sig-val 'None))
         (pass () (sig-void))
         (break () (sig-break))
         (continue () (sig-continue))
-        (func (name params statements) (display "func command\n"))
+        (func (name params statements) (run-func-declaration name params statements scope-index scopes))
         (if_stmt (cond_exp if_sts else_sts) (run-if cond_exp if_sts else_sts scope-index))
         (for_stmt (iter list_exp sts) (run-for iter list_exp sts scope-index))
         (print_stmt (expressions) (run-print expressions scope-index))

@@ -27,7 +27,16 @@
 (define (scope->globals s)
   (cases scope s
     (the-scope (env upper-scope-index globals) globals)
-    ))
+))
+
+
+(define (extend-scope-globals scope-index var)
+    (let ([-scope (get-scope scope-index)])
+        (set-scope scope-index
+            (the-scope (scope->env -scope) (scope->upper -scope) (append (scope->globals -scope) (list var)))
+        )
+    )
+  )
 
 
 (define correct-index? (lambda (n) (< n (length scopes))))
@@ -81,10 +90,12 @@
 (define (extend-scope scope-index var value)
     (let ([current-scope (get-scope scope-index)])
         (let ([current-env (scope->env current-scope)])
-            (let  ([new-env (extend-env var (if (promise? value)
-                                                value
-                                                 (a-promise value scope-index scopes)
-                                                ) current-env)])
+            (let ([new-env (extend-env var (cond 
+                                                [(promise? value) value]
+                                                [(proc? value) value]
+                                                [else (a-promise value scope-index scopes)]
+                                                )
+                                                 current-env)])
                 (set-scope scope-index 
                     (the-scope new-env 
                         (scope->upper current-scope)
@@ -103,5 +114,23 @@
 (define (is-global-on-given-scopes? var scope-index -scopes)
   (member var (scope->globals (get-scope-on-given-scopes scope-index -scopes)))
 )
+
+(define-datatype proc proc?
+  (new-proc
+   (params eval-func-param*?)
+   (statements list?)
+   (parent-scope scope-index?)
+   )
+  )
+
+(define-datatype eval-func-param eval-func-param?
+  (eval_with_default (var string?) (val any?) (scope-index number?) (-scopes list?))
+  )
+
+(define-datatype eval-func-param* eval-func-param*?
+  (empty-eval-func-param)
+  (eval-func-params (eval-param eval-func-param?) (rest-evals eval-func-param*?))
+  )
+
 
 (provide (all-defined-out))
