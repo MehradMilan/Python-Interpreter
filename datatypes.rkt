@@ -50,9 +50,11 @@
   (a-promise (val expression?) (scope-index number?) (-scopes list?)) 
 )
 
+(define (any? x) #t)
+
 (define-datatype environment environment?
   (empty-environment)
-  (extended-environment (var string?) (promise promise?) (env environment?))
+  (extended-environment (var string?) (val any?) (env environment?))
 )
 
 (define-datatype interp-signal interp-signal?
@@ -60,6 +62,23 @@
   (sig-continue)
   (sig-void)
 )
+
+(define-datatype proc proc?
+  (new-proc
+   (params eval-func-param*?)
+   (statements list?)
+   (parent-scope scope-index?)
+   )
+  )
+
+(define-datatype eval-func-param eval-func-param?
+  (eval_with_default (var string?) (val return-true))
+  )
+
+(define-datatype eval-func-param* eval-func-param*?
+  (empty-eval-func-param)
+  (eval-func-params (eval-param eval-func-param?) (rest-evals eval-func-param*?))
+  )
 
 (provide (all-defined-out))
 (#%provide (all-defined))
