@@ -1,5 +1,8 @@
-x = 2;
-i = x * 3;
-x = 7;
+i=2;
+if i==2:
+    i = 0 * undefined;
+    pass;
+else:
+    i = i + 1;;
+
 print(i);
-print(x);

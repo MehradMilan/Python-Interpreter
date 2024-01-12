@@ -202,6 +202,21 @@
         )
     )
 )
+
+(define run-if
+    (lambda (cond_exp if_sts else_sts scope-index)
+        (let ([cond-val (eval-expr cond_exp scope-index)])
+        
+            (if (not (and (eq? cond-val #f) (eq? cond-val 0)))
+                (interp-ast if_sts scope-index)
+                (interp-ast else_sts scope-index)
+            )
+        )
+    
+    )
+)
+
+
 (define run-single-command 
     (lambda (command scope-index)
         (cases statement command
@@ -209,15 +224,14 @@
         (global (var) (display "global command\n"))
         (return (expr) (display "return command\n"))
         (return_void () (display "return void command\n"))
-        (pass () (display "pass command\n"))
+        (pass () (void))
         (break () (display "break command\n"))
         (continue () (display "continue command\n"))
         (func (name params statements) (display "func command\n"))
-        (if_stmt (cond_exp if_sts else_sts) (display "if command\n"))
+        (if_stmt (cond_exp if_sts else_sts) (run-if cond_exp if_sts else_sts scope-index))
         (for_stmt (iter list_exp sts) (display "for command\n"))
         (print_stmt (expressions) (run-print expressions scope-index))
         (else (display "error\n"))
-        
         )
     )
 )
