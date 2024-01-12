@@ -75,23 +75,85 @@
     )
 )
 
-(define run-ref
-    (lambda (var scope-index) 
-        (cases promise (apply-scope scope-index var)
-            (a-promise (expr scope-index -scopes)
-            (begin
-                (display "expr:\n\n")
-                (display expr)
-                (display "value in env\n\n")
-                (display "\n\n")
-                (eval-expr expr scope-index)
+(define eval-binary-op-promise 
+    (lambda (op left right scope-index -scopes)
+        (let ([left-value (eval-expr-promise left scope-index -scopes)]
+              [op-name (object-name op)])
+            (cond
+                [(eq? op-name '*)
+                    (if (zero? left-value)
+                        left-value
+                        (op left-value (eval-expr-promise right scope-index -scopes))
+                    )
+                ]
+                [(eq? op-name 'expt)
+                    (if (or (eq? left-value 1) (eq? left-value 0)) 
+                        left-value
+                        (op left-value (eval-expr-promise right scope-index -scopes))
+                    )
+                ]
+                [(eq? op-name 'and-op)
+                    (if (eq? left-value #f)
+                        #f
+                        (op left-value (eval-expr-promise right scope-index -scopes))
+                    )
+                ]
+                [(eq? op-name 'or-op)
+                    (if (eq? left-value #t)
+                        #t
+                        (op left-value (eval-expr-promise right scope-index -scopes))
+                    )
+                ]
+                [else
+                    (op left-value (eval-expr-promise right scope-index -scopes))    
+                ]
             )
-            )
-        
         )
     )
 )
 
+(define run-ref
+    (lambda (var scope-index) 
+        ( let ([r (apply-scope scope-index var)])
+        (cases promise r
+            (a-promise (expr scope-index -scopes)
+                (eval-expr-promise expr scope-index -scopes)
+            )
+            (else r)
+        
+        )
+        )
+    )
+)
+
+(define run-ref-promise
+    (lambda (var scope-index -scopes) 
+    ( let ([r (apply-scope-on-given-scopes scope-index -scopes var)])
+        (cases promise  r
+            (a-promise (expr scope-index --scopes)
+                (eval-expr-promise expr scope-index --scopes)
+            )
+            (else r)
+        )
+    )
+    )
+)
+
+
+(define (eval-expr-promise expr scope-index -scopes)
+    (cases expression expr
+        (binary_op (op left right) (eval-binary-op-promise op left right scope-index -scopes))
+        (unary_op (op operand) (op (eval-expr-promise operand scope-index -scopes)))
+        ;;; (function_call (func expression?) (params expression*?))
+        ;;; (list_ref (ref expression?) (index expression?))
+        (ref (var) (run-ref-promise var scope-index -scopes))
+        (atomic_bool_exp (bool) bool)
+        (atomic_num_exp (num) num)
+        (atomic_null_exp () (void))
+        ;;; (atomic_list_exp (l expression*?))
+        (else (display "else\n"))
+    )
+)
 
 
 (define (eval-expr expr scope-index)
