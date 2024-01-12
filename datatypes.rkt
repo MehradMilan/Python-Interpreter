@@ -1,6 +1,10 @@
 #lang racket
 (require (lib "eopl.ss" "eopl"))
 
+(define (and-op x y) (and x y))
+(define (or-op x y) (or x y))
+
+
 (define-datatype statement statement?
   (assign (var string?) (expr expression?))
   (global (var string?))
@@ -43,7 +47,7 @@
   )
 
   (define-datatype promise promise?
-    (a-promise (val expression?) (env environment?)) 
+    (a-promise (val expression?) (scope-index number?) (-scopes list?)) 
   )
 
   (define-datatype environment environment?

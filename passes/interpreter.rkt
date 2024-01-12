@@ -22,7 +22,6 @@
 
 (define interp-ast 
     (lambda (as-subtree scope-index)
-
         (if (null? as-subtree) 
             (void)
             (let (
@@ -39,8 +38,76 @@
         )
     )
 )
+(define eval-binary-op 
+    (lambda (op left right scope-index)
+        (let ([left-value (eval-expr left scope-index)]
+              [op-name (object-name op)])
+            (cond
+                [(eq? op-name '*)
+                    (if (zero? left-value)
+                        left-value
+                        (op left-value (eval-expr right scope-index))
+                    )
+                ]
+                [(eq? op-name 'expt)
+                    (if (or (eq? left-value 1) (eq? left-value 0)) 
+                        left-value
+                        (op left-value (eval-expr right scope-index))
+                    )
+                ]
+                [(eq? op-name 'and-op)
+                    (if (eq? left-value #f)
+                        #f
+                        (op left-value (eval-expr right scope-index))
+                    )
+                ]
+                [(eq? op-name 'or-op)
+                    (if (eq? left-value #t)
+                        #t
+                        (op left-value (eval-expr right scope-index))
+                    )
+                ]
+                [else
+                    (op left-value (eval-expr right scope-index))    
+                ]
+            )
+        )
+    )
+)
+
+(define run-ref
+    (lambda (var scope-index) 
+        (cases promise (apply-scope scope-index var)
+            (a-promise (expr scope-index -scopes)
+            (begin
+                (display "expr:\n\n")
+                (display expr)
+                (display "value in env\n\n")
+                (display "\n\n")
+                (eval-expr expr scope-index)
+            )
+            )
+        
+        )
+    )
+)
 
 
+
+(define (eval-expr expr scope-index)
+    (cases expression expr
+        (binary_op (op left right) (eval-binary-op op left right scope-index))
+        (unary_op (op operand) (op (eval-expr operand scope-index)))
+        ;;; (function_call (func expression?) (params expression*?))
+        ;;; (list_ref (ref expression?) (index expression?))
+        (ref (var) (run-ref var scope-index))
+        (atomic_bool_exp (bool) bool)
+        (atomic_num_exp (num) num)
+        (atomic_null_exp () (void))
+        ;;; (atomic_list_exp (l expression*?))
+        (else (display "else\n"))
+    )
+)
 
 (define run-assign 
     (lambda (var expr scope-index) 
@@ -52,21 +119,22 @@
                 (extend-scope index var expr)
         
         )
-        (display "\n\n\n env \n\n\n")
-        (display (get-scope scope-index))
+        ;;; (display "\n\n\n env \n\n\n")
+        ;;; (display (get-scope scope-index))
     )
     )
 )
 
 
 (define run-print 
-    (lambda (exprs)
+    (lambda (exprs scope-index)
         (cases expression* exprs
             (empty-expr () (void))
             (expressions (expr rest-exprs) 
                 (begin
-                    (run-print rest-exprs)
-                    (display expr)
+                    (run-print rest-exprs scope-index)
+                    (display (eval-expr expr scope-index))
+                    (display "\n")
                 )
             )
         )
@@ -85,7 +153,7 @@
         (func (name params statements) (display "func command\n"))
         (if_stmt (cond_exp if_sts else_sts) (display "if command\n"))
         (for_stmt (iter list_exp sts) (display "for command\n"))
-        (print_stmt (expressions) (run-print expressions))
+        (print_stmt (expressions) (run-print expressions scope-index))
         (else (display "error\n"))
         
         )

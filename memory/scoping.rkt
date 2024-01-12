@@ -33,7 +33,11 @@
 (define correct-index? (lambda (n) (< n (length scopes))))
 
 (define (get-scope index)
-  (list-ref scopes index)
+  (get-scope-on-given-scopes index scopes)
+)
+
+(define (get-scope-on-given-scopes index -scopes)
+  (list-ref -scopes index)
 )
 
 (define (set-scope index s)
@@ -51,30 +55,33 @@
 
 (define (init-scope) (the-scope (empty-environment) -1 '()))
 
-;;; (define (apply-scope-index scope-index var)
-;;;   (
-;;;    let ([my-scope (get-scope-by-index scope-index)])
-;;;     (
-;;;      if (is-global? var scope-index) 
-;;;      (apply-scope-index ROOT var)
-;;;      (
-;;;       let ([res (apply-env (scope->env my-scope) var)])
-;;;        (cond
-;;;          [(not (equal? res (new-env-not-found))) res]
-;;;          [(>= (scope->parent-index my-scope) 0) (apply-scope-index (scope->parent-index my-scope) var)]
-;;;          [else (report-not-found my-scope var)]
-;;;          )
-;;;       )
-;;;      )
-;;;     )
-;;;   )
+(define (apply-scope scope-index var)
+  (apply-scope-on-given-scopes scope-index scopes var)
+)
 
+(define (apply-scope-on-given-scopes scope-index -scopes var)
+    (
+   let ([my-scope (get-scope-on-given-scopes scope-index -scopes)])
+    (
+     if (is-global-on-given-scopes? var scope-index -scopes) 
+     (apply-scope-on-given-scopes 0 -scopes var)
+     (
+      let ([res (apply-env var (scope->env my-scope))])
+       (cond
+         [(not (equal? res (empty-environment))) res]
+         [(>= (scope->upper my-scope) 0) (apply-scope-on-given-scopes (scope->upper my-scope) -scopes var)]
+         [else (eopl:error 'binding-error!
+            "\n\tIdentifier ~s is used before declaration!" var)]
+         )
+      )
+     )
+    )
+)
 
 (define (extend-scope scope-index var value)
     (let ([current-scope (get-scope scope-index)])
         (let ([current-env (scope->env current-scope)])
-            (let  ([new-env (extend-env var (a-promise value current-env) current-env)])
-            
+            (let  ([new-env (extend-env var (a-promise value scope-index scopes) current-env)])
                 (set-scope scope-index 
                     (the-scope new-env 
                         (scope->upper current-scope)
@@ -87,7 +94,11 @@
 )
 
 (define (is-global? var scope-index)
-  (member var (scope->globals (get-scope scope-index)))
+  (is-global-on-given-scopes? var scope-index scopes)
+)
+
+(define (is-global-on-given-scopes? var scope-index -scopes)
+  (member var (scope->globals (get-scope-on-given-scopes scope-index -scopes)))
 )
 
 (provide (all-defined-out))

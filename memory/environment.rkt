@@ -15,16 +15,19 @@
             ))
     )))
 
-(define apply-env (lambda (var env)
-    (cases environment env
-        (empty-environment () (eopl:error 'binding-error!
-            "\n\tIdentifier ~s is used before declaration!" (var)))
-        (extended-environment (pvar val penv)
-            (if (equal? var pvar)
-                val
-                (apply-env var penv)
-            ))
-    )))
+(define apply-env 
+    (lambda (var env)
+        (cases environment env
+            (empty-environment () (empty-environment))
+            (extended-environment (pvar val penv)
+                (if (equal? var pvar)
+                    val
+                    (apply-env var penv)
+                )
+            )
+        )
+    )
+)
 
 
 (provide (all-defined-out))
