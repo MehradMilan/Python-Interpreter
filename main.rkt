@@ -13,6 +13,8 @@
   (run (parse-scan (string-join (file->lines file-name))))
   )
 
+(evaluate "tests/main-test.py") 
+
 ;;; (evaluate "tests/test1.py") 
 
 ;;; (evaluate "tests/test2.py")
@@ -27,7 +29,7 @@
 
 ;;; (evaluate "tests/test7.py")
 
-(evaluate "tests/test8.py")
+;;; (evaluate "tests/test8.py")
 
 
 (provide (all-defined-out))
