@@ -11,6 +11,7 @@ def main():
     y2 = y[0];
     return x - y2;;
 
-
+x = main();
+print(x);
 print(main());
     

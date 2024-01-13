@@ -30,11 +30,14 @@
                 [new-subtree (cdr as-subtree)]
                 )
                 (let ([root-result (run-single-command root scope-index)])
-                    (cases interp-signal root-result
+                    (if (interp-signal? root-result)
+                        (cases interp-signal root-result
                         (sig-break () (sig-break))
                         (sig-continue () (sig-continue))
                         (sig-void () (interp-ast new-subtree scope-index))
                         (sig-val (value) value)
+                        )
+                        root-result
                     )
                 )
             )
@@ -230,6 +233,38 @@
     )
 )
 
+(define (get-last params)
+    (cases eval-func-param* params
+                (empty-eval-func-param () (display "\n\nerror25\n\n"))
+                (eval-func-params (p rest) (cases eval-func-param* rest
+                                            (empty-eval-func-param () p)
+                                            (eval-func-params (-p -rest) (get-last rest))
+                                            ))
+            )
+)
+
+(define (pop-last params)
+    (cases eval-func-param* params
+                (empty-eval-func-param () (display "\n\nerror44\n\n"))
+                (eval-func-params (p rest) (cases eval-func-param* rest
+                                            (empty-eval-func-param () (empty-eval-func-param))
+                                            (eval-func-params (-p -rest) (eval-func-params p (pop-last rest)))
+                                            ))
+            )
+)
+
+(define (reverse-params params)
+    (cases eval-func-param* params
+                (empty-eval-func-param () (empty-eval-func-param))
+                (eval-func-params (p rest) 
+                    (let
+                        ([last-elem (get-last params)])
+                        (eval-func-params last-elem (reverse-params (pop-last params)))  
+                    )
+                )
+            )
+)
+
 (define 
     (eval-over-params params over-params scope-index -scopes)
     (if (null? over-params )
@@ -259,7 +294,7 @@
                     (new-proc (params stmts parent-scope)
                         (let (
                             [new-scope-index (add-scope (get-scope parent-scope))]
-                            [params-val (eval-over-params params (eval-exp* over-params scope-index) scope-index scopes)]  
+                            [params-val (eval-over-params (reverse-params params) (eval-exp* over-params scope-index) scope-index scopes)]  
                             )
                             (run-a-function params params-val stmts new-scope-index)
                         )
@@ -283,7 +318,7 @@
                     (new-proc (params stmts parent-scope)
                         (let (
                             [new-scope-index (add-scope (get-scope parent-scope))]
-                            [params-val (eval-over-params params (eval-exp* over-params scope-index) scope-index scopes)]  
+                            [params-val (eval-over-params (reverse-params params) (eval-exp* over-params scope-index) scope-index scopes)]  
                             )
                             (run-a-function params params-val stmts new-scope-index)
                         )
